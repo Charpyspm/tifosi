@@ -1,3 +1,7 @@
+CREATE USER 'tifosi'@'localhost' IDENTIFIED BY 'DevoirCef';
+GRANT ALL PRIVILEGES ON tifosi.* TO 'tifosi'@'localhost';
+FLUSH PRIVILEGES;
+
 CREATE SCHEMA tifosi;
 USE tifosi;
 CREATE TABLE boisson (
