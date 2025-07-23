@@ -45,7 +45,10 @@ Résultat obtenu:
 */
 
 -- 4 afficher la liste des boissons avec leurs marque, triée par nom de boisson
-SELECT nom_boisson, marque FROM boisson ORDER BY nom_boisson;
+SELECT b.nom_boisson, m.nom_marque 
+FROM boisson b 
+JOIN marque m ON b.id_marque = m.id_marque 
+ORDER BY b.nom_boisson;
 
 /*
 Résultat attendu:
@@ -78,7 +81,10 @@ Résultat obtenu:
 */
 
 -- 5 afficher la liste des ingrédients pour une Raclaccia
-SELECT ingrédients FROM focaccia WHERE nom_focaccia = 'Raclaccia';
+SELECT GROUP_CONCAT(i.nom_ingredient SEPARATOR ', ') AS ingredients_noms
+FROM focaccia f
+JOIN ingredient i ON FIND_IN_SET(i.id_ingredient, f.ingrédients) > 0
+WHERE f.nom_focaccia = 'Raclaccia';
 
 /*
 Résultat attendu:
@@ -89,9 +95,10 @@ Résultat obtenu:
 */
 
 -- 6 afficher le nom et le nombre d'ingrédients de chaque focaccia
-SELECT nom_focaccia, 
-       (LENGTH(ingrédients) - LENGTH(REPLACE(ingrédients, ',', '')) + 1) AS nombre_ingredients
-FROM focaccia;
+SELECT f.nom_focaccia, COUNT(i.id_ingredient) AS nombre_ingredients
+FROM focaccia f
+JOIN ingredient i ON FIND_IN_SET(i.id_ingredient, f.ingrédients) > 0
+GROUP BY f.id_focaccia, f.nom_focaccia;
 
 /*
 Résultat attendu:
@@ -116,11 +123,18 @@ Résultat obtenu:
 */
 
 -- 7 afficher le nom de la focaccia qui as le plus d'ingrédients
-SELECT nom_focaccia
-FROM focaccia
-WHERE (LENGTH(ingrédients) - LENGTH(REPLACE(ingrédients, ',', '')) + 1) = (
-    SELECT MAX(LENGTH(ingrédients) - LENGTH(REPLACE(ingrédients, ',', '')) + 1)
-    FROM focaccia
+SELECT f.nom_focaccia
+FROM focaccia f
+JOIN ingredient i ON FIND_IN_SET(i.id_ingredient, f.ingrédients) > 0
+GROUP BY f.id_focaccia, f.nom_focaccia
+HAVING COUNT(i.id_ingredient) = (
+    SELECT MAX(ingredient_count)
+    FROM (
+        SELECT COUNT(i2.id_ingredient) AS ingredient_count
+        FROM focaccia f2
+        JOIN ingredient i2 ON FIND_IN_SET(i2.id_ingredient, f2.ingrédients) > 0
+        GROUP BY f2.id_focaccia
+    ) AS counts
 );
 
 /*
@@ -132,9 +146,10 @@ Résultat obtenu:
 */
 
 -- 8 afficher la liste des focaccia qui contiennent de l'ail
-SELECT nom_focaccia
-FROM focaccia
-WHERE ingrédients LIKE '%ail%';
+SELECT DISTINCT f.nom_focaccia
+FROM focaccia f
+JOIN ingredient i ON FIND_IN_SET(i.id_ingredient, f.ingrédients) > 0
+WHERE i.nom_ingredient = 'Ail';
 
 /*
 Résultat attendu:
@@ -151,37 +166,30 @@ Résultat obtenu:
 */
 
 -- 9 afficher la liste des ingrédients inutilisés
-SELECT nom_ingredient 
-FROM ingredient
-WHERE nom_ingredient NOT IN (
-    SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(ingrédients, ',', numbers.n), ',', -1)) AS ingredient
-    FROM focaccia
-    JOIN (
-        SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-        UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-    ) numbers ON CHAR_LENGTH(ingrédients) - CHAR_LENGTH(REPLACE(ingrédients, ',', '')) + 1 >= numbers.n
-);
+SELECT i.nom_ingredient
+FROM ingredient i
+LEFT JOIN focaccia f ON FIND_IN_SET(i.id_ingredient, f.ingrédients) > 0
+WHERE f.id_focaccia IS NULL;
 /*
 Résultat attendu:
     Salami
     Tomate cerise
 
 Résultat obtenu:
-    Oeuf
-    Olives vertes
     Salami
     Tomate cerise
-
-La différence entre le résultat attendu et celui obtenu, 
-est du au fait que la table ingredient stock "Oeuf" et la table focaccia le stock comme "œuf".
-L'orthographe étant différent, le script SQL ne les considère pas comme identiques.
-Pour ce qui est des Olives vertes, dans la table focaccia, une parenthèse est présente et pas dans la table ingredient.
 
 */
 
 -- 10 afficher la liste des focaccia qui n'ont pas de champignons
-SELECT nom_focaccia FROM focaccia
-WHERE ingrédients NOT LIKE '%champignon%';
+SELECT f.nom_focaccia
+FROM focaccia f
+WHERE f.id_focaccia NOT IN (
+    SELECT DISTINCT f2.id_focaccia
+    FROM focaccia f2
+    JOIN ingredient i ON FIND_IN_SET(i.id_ingredient, f2.ingrédients) > 0
+    WHERE i.nom_ingredient = 'Champignon'
+);
 
 /*
 Résultat attendu:
